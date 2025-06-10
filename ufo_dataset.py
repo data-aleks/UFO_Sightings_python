@@ -32,7 +32,8 @@ def get_location_details_smart(row):
         (current_city is None or current_state is None or current_country is None)):
 
         try:
-            time.sleep(1) # Add a delay to comply with Nominatim's fair usage policy.
+            # IMPORTANT: Keep this delay! 1 second per request is crucial for Nominatim's fair usage policy.
+            time.sleep(1)
             location = geolocator.reverse(f"{current_latitude}, {current_longitude}", language='en')
 
             if location and location.raw and 'address' in location.raw:
@@ -57,10 +58,10 @@ def get_location_details_smart(row):
                 # --- Handle Country (with Abbreviation) ---
                 if result_country is None:
                     # Prefer country_code (e.g., 'US', 'GB') if available, otherwise use full 'country' name.
-                    # Convert to uppercase for consistency.
+                    # Convert to lowercase for consistency as per original dataset abbreviations (AU, GB).
                     country_info = address.get('country_code', address.get('country'))
                     if country_info:
-                        result_country = country_info.upper()
+                        result_country = country_info.upper() # Changed to .upper() as per previous instructions
 
         except (GeocoderTimedOut, GeocoderServiceError) as e:
             # print(f"Error reverse geocoding {current_latitude}, {current_longitude}: {e}")
@@ -71,11 +72,13 @@ def get_location_details_smart(row):
 
     return {'city': result_city, 'state': result_state, 'country': result_country}
 
-# --- Rest of your existing code (no changes needed here for the logic) ---
+# --- Main Script Execution ---
 
 # Load your dataset
+print("Loading dataset...")
 df = pd.read_csv('./dataset/ufo_dataset.csv')
 df_processing = df.copy()
+print("Dataset loaded.")
 
 # Rename columns
 df_processing.rename(columns={
@@ -85,7 +88,10 @@ df_processing.rename(columns={
     'longitude ': 'longitude'
 }, inplace=True)
 
+print("Columns renamed.")
+
 # Identify records for geocoding
+print("Identifying records for geocoding...")
 rows_to_process_mask = (df_processing['latitude'].notna()) & \
                        (df_processing['longitude'].notna()) & \
                        ((df_processing['city'].isna()) | \
@@ -93,19 +99,21 @@ rows_to_process_mask = (df_processing['latitude'].notna()) & \
                         (df_processing['country'].isna()))
 
 df_needs_geocoding = df_processing[rows_to_process_mask].copy()
+print(f"Identified {len(df_needs_geocoding)} records needing geocoding.")
 
-# Create the TEST SAMPLE and store its original indices
-df_test_sample = df_needs_geocoding.sample(n=500, random_state=42)
-test_sample_indices = df_test_sample.index.tolist()
+# --- COMMENTED OUT: Test Sample Code ---
+# df_test_sample = df_needs_geocoding.sample(n=500, random_state=42)
+# test_sample_indices = df_test_sample.index.tolist()
+# total_records_to_process = len(df_test_sample)
 
-# --- Perform Geocoding on the Test Sample ---
-total_records_to_process = len(df_test_sample)
+# --- Full Run: Process all identified records ---
+total_records_to_process = len(df_needs_geocoding) # Now targeting the full set
 successfully_geocoded_count = 0
 
-print(f"**Identified {total_records_to_process} records for potential reverse geocoding in test sample.**\n")
+print(f"\n**Starting reverse geocoding for {total_records_to_process} records.** This may take a while (approx. {total_records_to_process} seconds).")
 
 if total_records_to_process > 0:
-    pbar = tqdm(df_test_sample.iterrows(), total=total_records_to_process,
+    pbar = tqdm(df_needs_geocoding.iterrows(), total=total_records_to_process,
                 desc=f"Geocoding (Filled: 0/{total_records_to_process}, Remaining: {total_records_to_process})")
 
     for index, row in pbar:
@@ -115,7 +123,7 @@ if total_records_to_process > 0:
 
         geocoded_values = get_location_details_smart(row)
 
-        # Update df_processing directly
+        # Update df_processing directly based on the original index
         df_processing.loc[index, 'city'] = geocoded_values['city']
         df_processing.loc[index, 'state'] = geocoded_values['state']
         df_processing.loc[index, 'country'] = geocoded_values['country']
@@ -127,30 +135,27 @@ if total_records_to_process > 0:
 
         pbar.set_description(f"Geocoding (Filled: {successfully_geocoded_count}/{total_records_to_process}, Remaining: {total_records_to_process - successfully_geocoded_count})")
 else:
-    print("No records found that meet the criteria for reverse geocoding (i.e., having lat/lon but missing city/state/country).")
+    print("No records found that meet the criteria for reverse geocoding (i.e., having lat/lon but missing city/state/country). No geocoding performed.")
 
 print("\n" + "="*50 + "\n")
-print("--- Updated DataFrame (Full df_processing) ---")
-print(df_processing.head()) # Just showing head for brevity
-print(f"\n**Summary:** Successfully filled at least one missing field (city/state/country) for **{successfully_geocoded_count}** records out of **{total_records_to_process}** that met the geocoding criteria in the test sample.")
+print("--- Geocoding Complete ---")
+print(df_processing.head()) # Show a glimpse of the updated DataFrame
+print(f"\n**Summary:** Successfully filled at least one missing field (city/state/country) for **{successfully_geocoded_count}** records out of **{total_records_to_process}** that met the geocoding criteria.")
 
-# --- Save the UPDATED test records from df_processing ---
-df_updated_test_records = df_processing.loc[test_sample_indices].copy()
+# --- COMMENTED OUT: Test Sample Saving Code ---
+# df_updated_test_records = df_processing.loc[test_sample_indices].copy()
+# df_test_sample_original = df.loc[test_sample_indices].copy()
+# df_comparison = pd.concat([
+#     df_test_sample_original.add_suffix('_original'),
+#     df_updated_test_records.add_suffix('_updated')
+# ], axis=1)
+# df_updated_test_records.to_csv('./dataset/geocoded_test_sample_updated.csv', index=True)
+# print(f"\nSaved updated test records to: ./dataset/geocoded_test_sample_updated.csv")
+# df_comparison.to_csv('./dataset/geocoded_test_sample_comparison.csv', index=True)
+# print(f"Saved comparison of original vs. updated test records to: ./dataset/geocoded_test_sample_comparison.csv")
 
-# For comparison, get the original records from the *initial* df
-df_test_sample_original = df.loc[test_sample_indices].copy()
-
-# Combine them for easy comparison (optional but good for testing)
-df_comparison = pd.concat([
-    df_test_sample_original.add_suffix('_original'),
-    df_updated_test_records.add_suffix('_updated')
-], axis=1)
-
-
-# Save the updated test records to a CSV
-df_updated_test_records.to_csv('./dataset/geocoded_test_sample_updated.csv', index=True)
-print(f"\nSaved updated test records to: ./dataset/geocoded_test_sample_updated.csv")
-
-# Optionally save the comparison DataFrame for detailed review
-df_comparison.to_csv('./dataset/geocoded_test_sample_comparison.csv', index=True)
-print(f"Saved comparison of original vs. updated test records to: ./dataset/geocoded_test_sample_comparison.csv")
+# --- Final Save of the fully processed DataFrame ---
+output_file_path = './dataset/df_geo_processed.csv'
+print(f"\nSaving the full geocoded DataFrame to {output_file_path}...")
+df_processing.to_csv(output_file_path, index=False) # index=False is important
+print("Save complete!")
