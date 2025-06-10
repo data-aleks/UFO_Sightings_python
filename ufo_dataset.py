@@ -1,3 +1,5 @@
+# IMPORTANT: This script takes about 4 hours to execute.
+
 import pandas as pd
 import numpy as np
 from geopy.geocoders import Nominatim
