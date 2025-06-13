@@ -1,7 +1,7 @@
 # **PT1: Data Cleaning of UFO Sightings Dataset**  
 
 ### **Project Goal**
-The goal of this project is to **explore, clean, and analyze** UFO sightings from the Kaggle dataset using Python. This is **Part 1**, focusing entirely on **data cleaning**—an essential step in preparing data for meaningful insights. The objective is to become comfortable with Python's data analytics workflow and master various data cleaning techniques.  
+The goal of this project is to **explore, clean, and analyze** UFO sightings from the [Kaggle](https://www.kaggle.com/datasets/NUFORC/ufo-sightings) Dataset using Python. This is **Part 1**, focusing entirely on **data cleaning**—an essential step in preparing data for meaningful insights. The objective is to become comfortable with Python's data analytics workflow and master various data cleaning techniques.  
 
 ### **Dataset Overview (`ufo_dataset.csv`)**
 The dataset contains information about UFO sightings, including:  
